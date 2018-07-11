@@ -3,7 +3,10 @@
 import codecs,pickle
 import numpy as np
 
+tags=['O', 'B-PER', 'I-PER', 'B-LOC', 'I-LOC', "B-ORG", "I-ORG"]
 
+word2id=None
+tag2id=None
 
 def read_data(path):
     '''
@@ -82,13 +85,122 @@ def get_vocab(train_path,embedding_path,vocab_save,embedding_save,embedding_size
             word_embedding.append(np.array(embedding[word]))
         else:
             not_found+=1
-            word_embedding.append(np.random.uniform(-0.25, 0.25,embedding_size))
+            word_embedding.append(np.zeros(embedding_size))
     print("random embedding num {}".format(not_found))
     with codecs.open(embedding_save, "wb") as f:
         pickle.dump(word_embedding, f)
-    return embedding
+    return word2id,word_embedding
+
+
+
+def parse_sentence(sentenct,word2id):
+    '''
+    parse senence to list of id
+    :param sentenct: 
+    :param word2id: 
+    :return: 
+    '''
+    res = []
+    for word in sentenct:
+        if word.encode("UTF-8").isdigit():
+            word = '<NUM>'
+        elif word.encode("UTF-8").isalpha():
+            word = '<ENG>'
+        if word not in word2id:
+            word = '<UNK>'
+        res.append(word2id[word])
+    return np.array(res)
+
+
+
+def load_base(vocab_path):
+    word2id = pickle.load(open(vocab_path, "rb"))
+    tag2id = {k: v for v, k in enumerate(tags)}
+    return word2id,tag2id
+
+
+def load_all(train_path,vocab_path,word_embedding_path):
+    '''
+    load all data
+    :param train_path: 
+    :param vocab_path: 
+    :param word_embedding_path: 
+    :return: 
+    '''
+    train_data=[]
+    train_label=[]
+    load_base(vocab_path)
+    word_embedding=pickle.load(open(word_embedding_path, "rb"))
+    data=read_data(train_path)
+    max_sentence_len=0
+    for sentence,label in data:
+        if len(sentence)>max_sentence_len:
+            max_sentence_len=len(sentence)
+        train_data.append(parse_sentence(sentence,word2id))
+        train_label.append(np.array([tag2id[t] for t in label]))
+    # pad sentence
+    # for i in range(len(train_data)):
+    #     if len(train_data[i])<max_sentence_len:
+    #         train_data[i] = np.append(train_data[i], [word2id["<PAD>"]]*(max_sentence_len-len(train_data[i])))
+    #         train_label[i] = np.append(train_label[i], [tag2id["O"]] * (max_sentence_len - len(train_label[i])))
+
+    # train_label=np.array(train_label)
+    # train_label=np.expand_dims(train_label, 2)
+    return train_data,train_label,word2id,np.array(word_embedding),max_sentence_len,tag2id
+
+def pad_sentence(train_data,train_label,max_sentence_len,word2id,tag2id):
+    for i in range(len(train_data)):
+        if len(train_data[i]) < max_sentence_len:
+            train_data[i] = np.append(train_data[i], [word2id["<PAD>"]] * (max_sentence_len - len(train_data[i])))
+            train_label[i] = np.append(train_label[i], [tag2id["O"]] * (max_sentence_len - len(train_label[i])))
+    train_data=np.array(train_data)
+    train_label = np.array(train_label)
+    train_label=np.expand_dims(train_label, 2)
+    return train_data,train_label
+
+
+def convert_sentenct(sentence,max_sentenct_len,word2id,tag2id):
+    sen=[]
+    for s in sentence:
+        sen.append(parse_sentence(s, word2id))
+    return pad_sentence(sen,[[]],max_sentenct_len,word2id,tag2id)
+
+def getEntity(sentences,labels):
+    PERs, LOCs, ORGs = [], [], []
+    for sent,label in zip(sentences,labels):
+        PER,LOC,ORG = [],[],[]
+        tag=list(map(lambda i:tags[i], np.argmax(label,axis=1)))
+        i=0
+        while i<len(tag):
+            if tag[i]=="B-PER":
+                per=sent[i]
+                i+=1
+                while i<len(tag) and tag[i]=="I-PER":
+                    per+=sent[i]
+                    i += 1
+                PER.append(per)
+            if tag[i] == "B-LOC":
+                loc = sent[i]
+                i += 1
+                while i < len(tag) and tag[i] == "I-LOC":
+                    loc += sent[i]
+                    i += 1
+                LOC.append(loc)
+            if tag[i] == "B-ORG":
+                org = sent[i]
+                i += 1
+                while i < len(tag) and tag[i] == "I-ORG":
+                    org += sent[i]
+                    i += 1
+                ORG.append(org)
+            i+=1
+        PERs.append(PER)
+        ORGs.append(ORG)
+        LOCs.append(LOC)
+    return PERs,LOCs,ORGs
+
+
 
 if __name__ == '__main__':
-    # data=read_data("data/train_data")
-    # embedding=load_word2vec("data/zh_wiki.vec")
-    em=get_vocab("data/train_data","data/zh_wiki.vec","data/vocab.pkl","data/vocab_embedding.pkl",embedding_size=300)
+    # get_vocab("data/train_data","data/zh_wiki.vec","data/vocab.pkl","data/vocab_embedding.pkl",embedding_size=300)
+    train_data, train_label, word2id, word_embedding, max_sentence_len,tag2id=load_all("data/train_data","data/vocab.pkl","data/vocab_embedding.pkl")
