@@ -2,11 +2,12 @@
 
 import codecs,pickle
 import numpy as np
+import settings
 
-tags=['O', 'B-PER', 'I-PER', 'B-LOC', 'I-LOC', "B-ORG", "I-ORG"]
-
-word2id=None
-tag2id=None
+# tags=['O', 'B-PER', 'I-PER', 'B-LOC', 'I-LOC', "B-ORG", "I-ORG"]
+#
+# word2id=None
+# tag2id=None
 
 def read_data(path):
     '''
@@ -113,10 +114,9 @@ def parse_sentence(sentenct,word2id):
 
 
 
-def load_base(vocab_path):
+def load_word2id(vocab_path):
     word2id = pickle.load(open(vocab_path, "rb"))
-    tag2id = {k: v for v, k in enumerate(tags)}
-    return word2id,tag2id
+    return word2id
 
 
 def load_all(train_path,vocab_path,word_embedding_path):
@@ -129,7 +129,7 @@ def load_all(train_path,vocab_path,word_embedding_path):
     '''
     train_data=[]
     train_label=[]
-    load_base(vocab_path)
+    word2id=load_word2id(vocab_path)
     word_embedding=pickle.load(open(word_embedding_path, "rb"))
     data=read_data(train_path)
     max_sentence_len=0
@@ -137,39 +137,31 @@ def load_all(train_path,vocab_path,word_embedding_path):
         if len(sentence)>max_sentence_len:
             max_sentence_len=len(sentence)
         train_data.append(parse_sentence(sentence,word2id))
-        train_label.append(np.array([tag2id[t] for t in label]))
-    # pad sentence
-    # for i in range(len(train_data)):
-    #     if len(train_data[i])<max_sentence_len:
-    #         train_data[i] = np.append(train_data[i], [word2id["<PAD>"]]*(max_sentence_len-len(train_data[i])))
-    #         train_label[i] = np.append(train_label[i], [tag2id["O"]] * (max_sentence_len - len(train_label[i])))
+        train_label.append(np.array([settings.TAG2ID[t] for t in label]))
+    return train_data,train_label,word2id,np.array(word_embedding),max_sentence_len
 
-    # train_label=np.array(train_label)
-    # train_label=np.expand_dims(train_label, 2)
-    return train_data,train_label,word2id,np.array(word_embedding),max_sentence_len,tag2id
-
-def pad_sentence(train_data,train_label,max_sentence_len,word2id,tag2id):
+def pad_sentence(train_data,train_label,max_sentence_len,word2id):
     for i in range(len(train_data)):
         if len(train_data[i]) < max_sentence_len:
             train_data[i] = np.append(train_data[i], [word2id["<PAD>"]] * (max_sentence_len - len(train_data[i])))
-            train_label[i] = np.append(train_label[i], [tag2id["O"]] * (max_sentence_len - len(train_label[i])))
+            train_label[i] = np.append(train_label[i], [settings.TAG2ID["O"]] * (max_sentence_len - len(train_label[i])))
     train_data=np.array(train_data)
     train_label = np.array(train_label)
-    train_label=np.expand_dims(train_label, 2)
+
     return train_data,train_label
 
 
-def convert_sentenct(sentence,max_sentenct_len,word2id,tag2id):
+def convert_sentences(sentences,labels,max_sentenct_len,word2id):
     sen=[]
-    for s in sentence:
+    for s in sentences:
         sen.append(parse_sentence(s, word2id))
-    return pad_sentence(sen,[[]],max_sentenct_len,word2id,tag2id)
+    return pad_sentence(sen,labels.tolist(),max_sentenct_len,word2id)
 
 def getEntity(sentences,labels):
     PERs, LOCs, ORGs = [], [], []
     for sent,label in zip(sentences,labels):
         PER,LOC,ORG = [],[],[]
-        tag=list(map(lambda i:tags[i], np.argmax(label,axis=1)))
+        tag=list(map(lambda i:settings.TAGS[i], np.argmax(label,axis=1)))
         i=0
         while i<len(tag):
             if tag[i]=="B-PER":
@@ -201,6 +193,11 @@ def getEntity(sentences,labels):
 
 
 
+def load_test(test_path):
+    data = read_data(train_path)
+
 if __name__ == '__main__':
-    # get_vocab("data/train_data","data/zh_wiki.vec","data/vocab.pkl","data/vocab_embedding.pkl",embedding_size=300)
-    train_data, train_label, word2id, word_embedding, max_sentence_len,tag2id=load_all("data/train_data","data/vocab.pkl","data/vocab_embedding.pkl")
+    get_vocab(settings.TRAIN_PATH,settings.EMBEDDING_PATH,settings.VOCAB_PATH,settings.VOCAB_EMBEDDING_PATH,embedding_size=settings.EMBEDDING_SIZE)
+    # train_data, train_label, word2id, word_embedding, max_sentence_len=load_all(settings.TRAIN_PATH,
+    #                                                                             settings.VOCAB_PATH,
+    #                                                                             settings.VOCAB_EMBEDDING_PATH)
