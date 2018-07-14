@@ -29,7 +29,8 @@ def create_custom_objects():
 def train():
     train_data, train_label, word2id, word_embedding, max_sentence_len = load_all(settings.TRAIN_PATH,settings.VOCAB_PATH,
                                                                                   settings.VOCAB_EMBEDDING_PATH)
-    word_embedding=np.random.uniform(-0.25,0.25,word_embedding.shape)
+    # test no embedding
+    # word_embedding=np.random.uniform(-0.25,0.25,word_embedding.shape)
     ner_model = NerModel(word2id, word_embedding, settings.TAGS, max_sentence_len, settings.EMBEDDING_SIZE)
     ner_model.train(train_data, train_label, save_path=settings.MODEL_PATH)
 
@@ -57,11 +58,6 @@ def eval(test_path,model_max_len=100):
     labels_pred = model.predict(sents)
 
     tags_pred=[list(map(lambda i: settings.TAGS[i], np.argmax(label, axis=1))) for label in labels_pred]
-    # y_true=[tag.split('-')[-1] for tag in np.array(labels).flatten()]
-    # y_pred = [tag.split('-')[-1] for tag in np.array(tags_pred).flatten()]
-    # y_true = [tag for tag in np.array(labels).flatten() ]
-    # y_true=list(map( lambda tag: tag if not tag =="0" else "O" ,np.array(labels).flatten()))
-    # y_pred = [tag for tag in np.array(tags_pred).flatten()]
     y_true=list(map( lambda tags: [tag if not tag =="0" else "O" for tag in tags] ,labels))
     y_pred=tags_pred
     metric(y_true,y_pred)
@@ -78,7 +74,7 @@ def metric(y_true, y_pred):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-m', type=str, default='train',help="mode: train/eval/demo ")
+    parser.add_argument('-m', type=str, default='train',help="mode: /preprocess/train/eval/demo ")
     args = parser.parse_args()
     if args.m=="train":
         train()
@@ -96,6 +92,8 @@ if __name__ == '__main__':
             else:
                 sentences = [sent]
                 predict(sentences, model_max_len=100)
-
+    elif args.m=="preprocess":
+        get_vocab(settings.TRAIN_PATH, settings.EMBEDDING_PATH, settings.VOCAB_PATH, settings.VOCAB_EMBEDDING_PATH,
+                  embedding_size=settings.EMBEDDING_SIZE)
     else:
         print("parameter error")
