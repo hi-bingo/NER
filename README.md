@@ -8,7 +8,7 @@ Use Bi-LSTM and CRF
 - sklearn
 - sklearn_crfsuite
 
-###Usage
+### Usage
 
 #### Prepare data
 - word2vec:	https://github.com/hankcs/HanLP/wiki/word2vec
@@ -33,7 +33,7 @@ In this mode, you can input one sentence from command line, then the program oup
 python main.py -m demo
 ```
 
-###Result
+### Result
 |         | precision   |  recall  | f1-score|
 | --------   | -----:  | -----:  | :----:  |
 | B-LOC      | 0.935   |   0.896     |0.915|
