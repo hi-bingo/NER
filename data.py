@@ -20,7 +20,7 @@ def read_data(path):
         lines = f.readlines()
     sentence, label= [], []
     for line in lines:
-        if line != '\r\n':
+        if line not in ['\r\n','\n']:
             [char, tag] = line.strip().split()
             sentence.append(char)
             label.append(tag)
